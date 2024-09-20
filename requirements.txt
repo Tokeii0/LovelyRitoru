@@ -1,0 +1,5 @@
+PySide6>=6.0.0
+Pillow>=8.0.0
+opencv-python>=4.5.0
+pyzbar>=0.1.8
+numpy>=1.19.0
