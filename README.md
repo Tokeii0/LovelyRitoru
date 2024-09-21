@@ -50,6 +50,7 @@ _✨ 一款自由的，可拓展CTF工具 名字取自群聊机器人"小可"✨
 
 
 ## 软件截图
-![8f3fe8e135d3b07427088e615d320dba](https://github.com/user-attachments/assets/1a3085b1-ec4c-4858-a3d0-8385975689cc)
+
+![image](https://github.com/user-attachments/assets/a0251502-f6b8-447f-ae68-ff55021db7ac)
 
 
