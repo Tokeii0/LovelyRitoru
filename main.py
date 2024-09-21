@@ -17,7 +17,7 @@ if __name__ == "__main__":
     splash.setEnabled(False)
 
     
-    splash.setWindowOpacity(0.)
+    splash.setWindowOpacity(0.5)
     splash.show()
     start_time = time.time()
     while time.time() - start_time < 1:

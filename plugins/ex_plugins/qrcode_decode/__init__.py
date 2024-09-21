@@ -9,18 +9,18 @@ __description__ = "解码图片中的QR码"
 def __checktype__(file_path):
     return file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif'))
 
-def __start__(file_path):
+def __start__(file_path, password_list=None):
     try:
         # 读取图片
         img = cv2.imread(file_path)
         if img is None:
-            return "无法读取图片"
-        
+            return "无法读取图片", []
+
         # 解码QR码
         decoded_objects = pyzbar.decode(img)
         if not decoded_objects:
-            return "未找到QR码"
-        
+            return "未找到QR码", []
+
         # 提取QR码内容
         qr_data = decoded_objects[0].data.decode('utf-8')
 
@@ -34,12 +34,14 @@ def __start__(file_path):
             f.write(f"QR码信息 - {file_path}:\n")
             f.write(f"QR码内容: {qr_data}\n")
 
-        result = f"QR码信息已保存到 {output_path}\n"
-        result += f"QR码内容: {qr_data}"
-        # 返回结果，文件位置
-        return [result, output_path]
+        log_message = f"成功解码QR码，内容已保存到 {output_path}"
+        return log_message, [output_path, qr_data]
     except Exception as e:
-        return f"解码QR码时发生错误: {str(e)}"
+        return f"解码QR码时发生错误: {str(e)}", []
 
 def __result__(result):
-    return result
+    if isinstance(result, tuple) and len(result) == 2:
+        _, data = result
+        if isinstance(data, list) and len(data) > 1:
+            return f"QR码内容: {data[1]}"
+    return None

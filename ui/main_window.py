@@ -13,12 +13,13 @@ import shutil
 import os
 import zipfile
 from datetime import datetime
+import time, os
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("LovelyRitoru")
-        self.setGeometry(100, 100, 1000, 600)
+        self.setGeometry(100, 100, 1200, 600)
         # logo.ico
         self.setWindowIcon(QIcon("logo.ico"))
 
@@ -29,12 +30,18 @@ class MainWindow(QMainWindow):
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.perform_search)
+        self.password_list = QListWidget()
+        self.password_input = QLineEdit()
+        self.add_password_button = QPushButton("添加")
         self.init_ui()
-        self.connect_signals()
+
         self.processing_thread = None
+        self.connect_signals()
     def connect_signals(self):
         self.start_button.clicked.connect(self.start_processing)
         self.stop_button.clicked.connect(self.stop_processing)
+        if self.processing_thread:
+            self.processing_thread.update_password.connect(self.update_password_slot)
     def init_ui(self):
         
 
@@ -58,7 +65,24 @@ class MainWindow(QMainWindow):
         file_import_layout.addWidget(self.file_list)
         file_import_group.setLayout(file_import_layout)
         left_layout.addWidget(file_import_group, 2)
+        # 在文件导入部分下方添加密码槽
+        password_slot_group = QGroupBox("密码槽")
+        password_slot_layout = QVBoxLayout()
+        self.password_list = QListWidget()
+        self.password_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.password_list.customContextMenuRequested.connect(self.show_password_context_menu)
+        password_slot_layout.addWidget(self.password_list)
+        # 添加密码输入框和按钮
+        password_input_layout = QHBoxLayout()
+        self.password_input = QLineEdit()
+        self.add_password_button = QPushButton("添加")
+        self.add_password_button.clicked.connect(self.add_custom_password)
+        password_input_layout.addWidget(self.password_input)
+        password_input_layout.addWidget(self.add_password_button)
+        password_slot_layout.addLayout(password_input_layout)
 
+        password_slot_group.setLayout(password_slot_layout)
+        left_layout.addWidget(password_slot_group, 1)  # 添加到左侧布局
         # 检测插件部分
         check_plugins_group = QGroupBox("检测插件")
         check_plugins_layout = QVBoxLayout()
@@ -152,7 +176,7 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout()
         right_layout.setSpacing(5)
 
-        # 日志显示部分
+        # 修改日志显示部分
         log_group = QGroupBox("日志")
         log_layout = QVBoxLayout()
         self.log_text = QTextEdit()
@@ -161,10 +185,12 @@ class MainWindow(QMainWindow):
         log_group.setLayout(log_layout)
         right_layout.addWidget(log_group)
 
-        # 检测结果部分
+        # 修改检测结果部分
         results_group = QGroupBox("检测结果")
         results_layout = QVBoxLayout()
         self.results_list = QListWidget()
+        self.results_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.results_list.customContextMenuRequested.connect(self.show_context_menu)
         results_layout.addWidget(self.results_list)
         results_group.setLayout(results_layout)
         right_layout.addWidget(results_group)
@@ -172,7 +198,7 @@ class MainWindow(QMainWindow):
         # 设置布局比例
         main_layout.addLayout(left_layout, 3)
         main_layout.addLayout(middle_layout, 3)
-        main_layout.addLayout(right_layout, 3)
+        main_layout.addLayout(right_layout, 6)
 
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
@@ -300,21 +326,46 @@ class MainWindow(QMainWindow):
             self.processing_thread = ProcessingThread(self)
             self.processing_thread.update_log.connect(self.update_log)
             self.processing_thread.update_result.connect(self.update_result)
+            self.processing_thread.update_password.connect(self.update_password_slot)
             self.processing_thread.finished.connect(self.processing_finished)
             self.processing_thread.start()
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(True)
-            self.log_text.clear()
-            self.results_list.clear()  # 清空结果列表
-            self.log_text.append("开始处理...")
+            self.log_text.append("开始新的处理过程...")
+        else:
+            self.log_text.append("处理已在进行中，无法启动新的处理过程。")
 
     def update_log(self, message):
-        self.log_text.append(message)
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        formatted_message = f"[{timestamp}] {message}"
+        self.log_text.append(formatted_message)
 
     def update_result(self, result):
-        self.results_list.addItem(result)  
-              
+        # 检查结果是否已存在
+        items = [self.results_list.item(i).text() for i in range(self.results_list.count())]
+        if result not in items:
+            self.results_list.addItem(result)
+        else:
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            self.log_text.append(f"[{timestamp}] 重复结果: {result}")
+        
+    def update_password_slot(self, password):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        items = [self.password_list.item(i).text() for i in range(self.password_list.count())]
+        if password not in items:
+            self.password_list.addItem(password)
+            self.log_text.append(f"[{timestamp}] 添加新密码到密码槽: {password}")
+            
+            self.log_text.append(f"[{timestamp}] 尝试重新启动处理过程...")
+            if self.processing_thread and self.processing_thread.isRunning():
+                self.log_text.append(f"[{timestamp}] 处理线程已在运行，停止当前线程...")
+                self.stop_processing()
+            self.start_processing()
+        else:
+            #标准日志格式
+            self.log_text.append(f"[{timestamp}] 密码 '{password}' 已存在")
     def deduplicate_results(self):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         original_count = self.results_list.count()
         unique_results = []
         seen = set()
@@ -331,17 +382,19 @@ class MainWindow(QMainWindow):
             self.results_list.addItem(result)
         
         removed_count = original_count - len(unique_results)
-        self.log_text.append(f"去重完成，共删除 {removed_count} 条重复结果。")
+        self.log_text.append(f"[{timestamp}]去重完成，共删除 {removed_count} 条重复结果。")
 
     def stop_processing(self):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         if self.processing_thread and self.processing_thread.isRunning():
             self.processing_thread.stop()
-            self.log_text.append("正在停止处理...")
+            self.log_text.append(f"[{timestamp}]正在停止处理...")
 
     def refresh_plugins(self):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.plugin_manager.refresh_plugins()
         self.load_plugins()
-        self.log_text.append("插件已刷新。")
+        self.log_text.append(f"[{timestamp}] 插件已刷新。")
 
     def processing_finished(self):
         self.start_button.setEnabled(True)
@@ -361,10 +414,13 @@ class MainWindow(QMainWindow):
         return enabled_plugins
     
     def clear_all(self):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_text.clear()
         self.file_manager.clear_files()
         self.file_list.clear()
-        self.log_text.append("已清空所有内容。")
+        self.results_list.clear()
+        
+        self.log_text.append(f"[{timestamp}] 已清空所有内容。")
 
     def show_file_structure(self):
         if self.file_structure_window is None:
@@ -389,12 +445,32 @@ class MainWindow(QMainWindow):
         self.file_structure_window.populate_tree()  # 刷新树
         self.file_structure_window.show()
     def add_file_from_structure(self, file_path):
+        timestamp = datetime.now().strftime("%H:%M:%S")
         if os.path.isfile(file_path):
             self.file_manager.add_file(file_path)
             self.file_list.addItem(file_path)
-            self.log_text.append(f"已添加文件: {file_path}")
+            self.log_text.append(f"[{timestamp}] 已添加文件: {file_path}")
         else:
-            self.log_text.append(f"无法添加文件夹: {file_path}")
+            self.log_text.append(f"[{timestamp}] 无法添加文件夹: {file_path}")
+
+
+    def show_password_context_menu(self, position):
+        menu = QMenu()
+        delete_action = menu.addAction("删除")
+        action = menu.exec_(self.password_list.mapToGlobal(position))
+        if action == delete_action:
+            self.delete_selected_password()
+
+    def delete_selected_password(self):
+        current_item = self.password_list.currentItem()
+        if current_item:
+            self.password_list.takeItem(self.password_list.row(current_item))
+
+    def add_custom_password(self):
+        password = self.password_input.text().strip()
+        if password:
+            self.password_list.addItem(password)
+            self.password_input.clear()    
     def closeEvent(self, event):
         if self.processing_thread and self.processing_thread.isRunning():
             self.processing_thread.stop()
