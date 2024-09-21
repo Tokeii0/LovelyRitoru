@@ -36,7 +36,12 @@ _✨ 一款自由的，可拓展CTF工具 名字取自群聊机器人"小可"✨
 
 ## 🛠️ 插件开发
 
-LovelyRitoru的真正魔力在于其可扩展性。查看我们的插件开发指南，轻松创建属于你的功能模块！
+每个插件应该是一个独立的 Python 包,包含一个 `__init__.py` 文件。插件应该放置在以下三个目录之一中:
+
+- `plugins/base_plugins/`: 基础工具模块
+- `plugins/ex_plugins/`: 进阶工具模块
+- `plugins/check_plugins/`: 检测插件
+
 [开发文档](https://github.com/Tokeii0/LovelyRitoru/blob/main/Plugin-Dev.md)
 
 ## 🎉 最后的话
